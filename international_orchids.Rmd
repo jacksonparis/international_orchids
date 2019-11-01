@@ -84,8 +84,14 @@ left_join(country_codes, by = c("Exporter" = "Code"))
 setnames(all_table, old=c("Name.x","Name.y"), new=c("importer_country", "exporter_country"))
 ```
 
+#Next steps:
+#Visualize locations of orchids on a 3D globe -- could use coordinate points from IUCN data, or aggregate the orchids into groups based on their threatened level in each country (scroll over a country to see how many IUCN near threatened, threatened, endangered, and critical orchids grow there).
+#Visualize import/export of orchids (by genus? subfamily?) based on magnitude for each country. This could be done on a globe or a flat map. Connecting lines/arrows for each shipment, with width varying depending on the number of plants/two circles or a bar chart to indicate import and export of plants, based on total number of shipments or total number of orchids.
+#Search "rationale" column in IUCN assessments data (now part of all_table) for keywords or phrases such as "habitat decline," "threat from agriculture" to show trends in the cause of species decline.
+#Search "habitat" column for keywords relating to growth habit: "epiphytic" (tree-dwelling), "terrestrial" (soil-dwelling) or "epilithic" (rock-dwelling), to look for links between the growth habit and the natural abundance of plants in the face of changing landscapes. 
 
 ```{r}
 
 ```
 
+#Country data was sourced from datahub.io
