@@ -3,9 +3,11 @@ library(janitor)
 # Writing a csv file containing all of the data I have aggregated
 dir.create("./data")
 
-write_csv(all_table, "./data/aggregate.csv")
+# Cleaning and renaming the all_table with janitor
+aggregated <- clean_names(all_table)
 
-aggregate <- clean_names(aggregate)
+# Writing aggregated as a csv file
+write.csv(aggregated, "data/aggregated.csv", row.names = FALSE)
 
 # Finding the top exporters to a given country and year
 top_ten <- aggregate %>%

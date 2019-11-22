@@ -2,6 +2,25 @@ library(shiny)
 library(tidyverse)
 library(markdown)
 
+aggregated <- read_csv("aggregated.csv", col_types = 
+                           cols(
+                               .default = col_character(),
+                               year = col_double(),
+                               importer_reported_quantity = col_double(),
+                               exporter_reported_quantity = col_double(),
+                               assessment_id = col_double(),
+                               internal_taxon_id = col_double(),
+                               year_published = col_double(),
+                               criteria_version = col_double(),
+                               year_last_seen = col_double(),
+                               possibly_extinct = col_logical(),
+                               possibly_extinct_in_the_wild = col_logical(),
+                               infra_type = col_logical(),
+                               infra_name = col_logical(),
+                               infra_authority = col_logical(),
+                               subpopulation_name = col_logical()
+                           ))
+
 # Making the user interface
 ui <- navbarPage("Orchids Around the World",
                  tabPanel("Importers",
@@ -50,7 +69,7 @@ server <- function(input, output) {
     output$table <- renderTable({
         top_ten <- 
             # Starting with the entire dataset
-            aggregate %>%
+            aggregated %>%
             # Filtering by importer country, year, and live plants
             filter(importer_country == as.character(input$country), 
                    term == "live", year == input$year) %>%
