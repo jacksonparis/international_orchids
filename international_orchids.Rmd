@@ -92,7 +92,55 @@ setnames(all_table, old=c("Name.x","Name.y"), new=c("importer_country", "exporte
 #Search "habitat" column for keywords relating to growth habit: "epiphytic" (tree-dwelling), "terrestrial" (soil-dwelling) or "epilithic" (rock-dwelling), to look for links between the growth habit and the natural abundance of plants in the face of changing landscapes. 
 
 ```{r}
+# Reading in IUCN's point dataset, which contains information 
+# regarding locations of plants over many genuses
+points <- read_xlsx("~/Desktop/redlist_orchid_points/points_data.xlsx")
 
+# Joining the points dataset with IUCN_assessments to include
+# red list categories.
+points_plus <- points %>% 
+  left_join(IUCN_orchids, by = c("binomial" = "scientificName")) %>%
+  select(binomial, longitude, latitude, redlistCategory) %>%
+  filter(redlistCategory != "Data Deficient") %>%
+  mutate(label = str_c(points_plus$binomial,
+                       points_plus$redlistCategory,
+                       sep = ", "))
+
+# Ordering levels so they can be colored on the map
+points_plus$redlistCategory <- 
+  factor(points_plus$redlistCategory,
+         levels = c(
+           "Extinct",
+           "Critically Endangered",
+           "Endangered",
+           "Vulnerable",
+           "Near Threatened",
+           "Least Concern"
+         ))
+```
+
+
+```{r}
+# Making the interactive map with leaflet
+library(leaflet)
+
+# Coloring the red list categories
+palette <- colorFactor("RdYlGn", points_plus$redlistCategory)
+
+# Putting the map together with leaflet
+IUCN_map <- 
+  leaflet() %>%
+  addProviderTiles(providers$Esri.OceanBasemap) %>%
+  setView(lng = 0, lat = 20, zoom = 1.5) %>% 
+  addCircleMarkers(data = points_plus, ~longitude, ~latitude,
+                   weight = 0.5,
+                   col = ~palette(redlistCategory), 
+                   fillColor = ~palette(redlistCategory),
+                   radius = 3, 
+                   fillOpacity = 0.9, 
+                   stroke = T, 
+                   label = ~points_plus$label
+  )
 ```
 
 #Country data was sourced from datahub.io
