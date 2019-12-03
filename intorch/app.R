@@ -29,6 +29,44 @@ points_plus <- read_csv("points_plus.csv", col_types =
                                 redlistCategory = col_character(),
                                 label = col_character())) 
 
+im_index <- aggregated %>%
+    select(genus, species, rationale, habitat,
+           threats, range, use_trade) %>%
+    mutate(binomial = str_c(genus, species, sep = "-"))
+
+library(rvest)
+library(imager)
+library(magick)
+
+#Run a search query (returning html content)
+search_word <- function() {
+    
+    sample_n(im_index, size = 1) -> random
+    
+    name <- as.character(random[1,8])
+    
+    keyword <- str_c("https://www.google.com/search?site=&tbm=isch&q=", 
+                     name,
+                     sep = "")
+    
+    search <- read_html(keyword)
+    
+    #Grab all <img> tags, get their "src" attribute, a URL to an image
+    urls <- search %>%
+        html_nodes("img") %>% 
+        html_attr("src") 
+    #Get urls of pictures
+    
+    ima <- image_read(urls[1]) %>%
+        image_scale(geometry = "100")
+    
+    ima <- image_border(image_background(ima, "hotpink"), "#000080", "5x5")
+    
+    ima
+    
+}
+
+
 # Making the user interface
 ui <- navbarPage("Orchids Around the World",
                  tabPanel("Importers",
@@ -62,13 +100,26 @@ ui <- navbarPage("Orchids Around the World",
                                                                          2013, 2014, 2015, 2016, 2017))),
                               # Making space for the table output
                               mainPanel(
-                                  tableOutput("table")
+                                  tableOutput("table"),
+                                  plotOutput("plot")
                               )
                           )
                  ), 
                  tabPanel("Map",
                           leafletOutput("map")
-)
+),
+                 tabPanel("Explore Species",
+                          sidebarLayout(
+                              sidebarPanel(
+                                  helpText("Click to discover something about
+                                           a random orchid in the IUCN 
+                                           database."),
+                                  actionButton("button", "Random Orchid"),
+                              ),
+                          mainPanel(
+                          imageOutput("image"),
+                          textOutput("text"))
+                          ))
 )
 
 # Setting up the server function
@@ -108,6 +159,21 @@ server <- function(input, output) {
         top_ten
     })
     
+    output$plot <- renderPlot({
+        top_ten <- 
+            aggregated %>%
+            filter(importer_country == as.character(input$country), 
+                   term == "live", year == input$year) %>%
+            group_by(exporter_country) %>%
+            replace_na(list(importer_reported_quantity = 0)) %>%
+            summarize(importer_count = sum(importer_reported_quantity),
+                      number_imports = n()) %>%
+            arrange(desc(number_imports)) %>%
+            head(top_ten, n = 10) %>%
+            select(exporter_country, importer_count, number_imports)
+
+    })
+    
     output$map <- renderLeaflet({
         leaflet() %>%
             addProviderTiles(providers$Esri.OceanBasemap) %>%
@@ -122,8 +188,22 @@ server <- function(input, output) {
                              label = ~points_plus$label
             )
     })
+    
+    ima <- eventReactive(input$button, {
+        search_word() })
+    
+    output$image <- renderImage({
+        
+        ima <- image_write(ima(), path = "ima.jpeg", format = "jpeg")
+        
+            list(src = "ima.jpeg",
+                 contentType = "image",
+                 width = 110,
+                 alt = "..."
+            )}, 
+            
+            deleteFile = TRUE)
 }
-
 
 # Run the application 
 shinyApp(ui = ui, server = server)
