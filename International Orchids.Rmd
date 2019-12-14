@@ -1,0 +1,132 @@
+---
+title: "International Orchids"
+author: "Jackson Kehoe"
+date: "12/13/2019"
+output: pdf_document
+indent: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+library(tidyverse)
+library(markdown)
+library(leaflet)
+library(shinythemes)
+library(wordcloud2)
+library(slam)
+library(tm)
+library(htmltools)
+library(janitor)
+
+aggregated <- read_csv("./intorch/aggregated.csv", col_types = 
+                         cols(
+                           .default = col_character(),
+                           year = col_double(),
+                           importer_reported_quantity = col_double(),
+                           exporter_reported_quantity = col_double(),
+                           assessment_id = col_double(),
+                           internal_taxon_id = col_double(),
+                           year_published = col_double(),
+                           criteria_version = col_double(),
+                           year_last_seen = col_double(),
+                           possibly_extinct = col_logical(),
+                           possibly_extinct_in_the_wild = col_logical(),
+                           infra_type = col_logical(),
+                           infra_name = col_logical(),
+                           infra_authority = col_logical(),
+                           subpopulation_name = col_logical()
+                         ))
+```
+
+
+Orchids represent the largest family of plants on Earth, with almost 30,000 species. Much like humans, they are found naturally on almost every continent, and it turns out they frequently travel across the oceans as well. The international trade of orchids is alive and kicking, to the benefit or detriment of plants which are either artificially propogated or wild collected. This network, propogated largely due to the ever-blooming ornamental horticulture business, connects countries all over the world. Phalaenopsis is a common genus in the United States, although not native, flowering plants can often be found in groceries, home improvement stores, and nurseries. Flowers of Dendrobium or Vandaceous species and hybrids, for which Thailand is famous, are often cut for use in floral arrangements elsewhere.
+
+Part of the goal for this project was the process itself -- I wanted to examine data from CITES and IUCN relating to orchids (I was not informed on the topic, maybe I would find something interesting). The data covered international trade and conservation of the plants, respectively. After having discovered these data sources I came across a recent paper, a useful compiled report on the international trade of these plants (Hinsley et. al 2017). The project was not intended to replicate this research, and it remained that way -- although there is some overlap. 
+
+One these two organizations -- similar information can be found in the "About" tab and the "Map" tab of the shiny app -- CITES is "...an international agreement between governments. Its aim is to ensure that international trade in specimens of wild animals and plants does not threaten their survival." Orchids can be finnicky plants -- they usually require the presence of specific fungi to germinate, and frequently have very specific insect pollinators. Unregulated wild collection, often spurred by foreign demand, can be very damaging to some populations, and CITES provides a guidelines for participating countries to work with, so national legislation can be worked within each country. The IUCN is nominally a conservation organization, and their Redlist is a project that aims to assess the current states of a diverse array of species (a.k.a. "The Barometer of Life"). It's no secret that the global environment is facing unprecedented pressure and stress from human activities, and orchids, with their global distribution, have not been spared from the effects of habitat loss and altered climate. Various assessments made on populations of a certain species contribute to its listing level, which includes the familiar "Endangered" and "Extinct," but also "Least Concern," "Vulnerable," and "Near-Threatened."
+
+Now, for a walkthrough of the project. The opening "About" tab contains some facts about orchids, and the first interactive is a random image generator. I made this by using an eventReactive button, when clicked it initiates a random sampling of the IUCN Redlist orchids. Within shiny's renderImage function, I paste the name of the species into a URL and perform an image search, then a few aesthetic touches which make the tiny, pixelated flower look a little less underwhelming. This function allows the user to lose themselves in the endless stream of otherworldy flower forms and colors while becoming familiar with orchids in a slightly more accessible way (it's also fun). More information on CITES and their trade data is a scroll away in this first tab. 
+
+The next series of tabs, "Importers 1 & 2," is my attempt to poke around and analyze the CITES trade data I collected. It was easy to source from the CITES trade database (https://trade.cites.org) and I took everything on orchids going back to the 1970s. For the app, I limited the year to 1995 to avoid super spotty data. Importers 1 does not include a model, but serves to point out mainly how inconsistent the data is. These inconsistencies shine when plotted side by side in a bar chart: the number of specimens reported to have been received by the importer is often drastically different than the number reported shipped by the exporter. This can be for multiple reasons, for example: how does one define a single live plant? Orchids are only sometimes monopodial (grows up from a single point), and many times can be found in "clumps" of speudobulbs connected by rhizomes. Maybe the team of scientists collecting plants guessed that they had shipped about 100 specimens, but didn't count exact numbers (this does happen). Whatever the case, it put the question in my mind of how effective CITES really is -- although it seems like each year there is more data being collected.  
+
+```{r, echo=FALSE, fig.align="center"}
+top_ten <-
+            aggregated %>%
+            filter(importer_country == as.character("United States"), 
+                   term == "live", year == 2000) %>%
+            group_by(exporter_country) %>%
+            replace_na(list(importer_reported_quantity = 0)) %>%
+            replace_na(list(exporter_reported_quantity = 0)) %>%
+            summarize(importer_count = sum(importer_reported_quantity),
+                  exporter_count = sum(exporter_reported_quantity),
+                  number_imports = n()) %>%
+            arrange(desc(number_imports)) %>%
+            head(top_ten, n = 10) %>%
+            select(exporter_country, importer_count, exporter_count)
+        
+        top_ten_graph <- pivot_longer(top_ten, 
+                                      cols = c(importer_count, exporter_count),
+                                      values_to = "value")
+        
+        ggplot(top_ten_graph, aes(x = exporter_country, y = value, 
+                                  fill = name)) +
+            geom_bar(position = "dodge", stat = "identity") + 
+            theme(axis.text.x = element_text(angle = 55, hjust = 1),
+                  legend.title = element_blank()) + 
+            labs(x = "Exporter Coutnry", 
+                 y = "Reported Live Specimens",
+                 title = "United States Imports in 2000")
+        
+```
+
+Imports 2 looks at how countries' imports and exports have changed over time. For this tab, I grouped by importer countries for each year (in the shiny app this is interchangeable with export country), summed the total exporter count (in order to standardize, I felt exporter count had less missing data and usually greater numbers), nested by country, and ran a linear model explaining the sum as a function of year for each country with more than 15 years worth of data. This graph shows that the United States has on average grown their imports of orchids more than any other country.
+
+```{r, echo=FALSE, fig.align="center"}
+model2data <- 
+  aggregated %>%
+  select(year, importer_country, exporter_country,
+         exporter_reported_quantity) %>%
+  drop_na() %>%
+  filter(year >= 1995) %>%
+  group_by(importer_country, year) %>%
+  mutate(sum = sum(exporter_reported_quantity)) %>%
+  mutate(number = n()) %>%
+  filter(number >= 15) %>%
+  ungroup() %>%
+  group_by(importer_country) %>%
+  nest() %>%
+  mutate(models = map(data, ~lm(sum ~ year, data = .x))) %>%
+  mutate(coefs = map(models, ~coef(.x))) %>%
+  mutate(intercept = map_dbl(coefs, ~purrr::pluck(.x, "(Intercept)"))) %>%
+  mutate(year = map_dbl(coefs, ~purrr::pluck(.x, "year"))) %>%
+  arrange(desc(year)) %>%
+  drop_na()
+
+ggplot(model2data, aes(x = reorder(importer_country, year), 
+                       y = year)) + 
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 55, hjust = 1)) + 
+  coord_flip() + 
+  labs(x = "Shipped To", y = "Slope")
+```
+
+The next two tabs are less statistically inclined and explore the possibilities for data visualization when working with shiny. The Map tab takes IUCN point data from various population studies and displays it using  Leaflet. An interactive hover feature allows the user to see species name, conservation status, and the year it was assessed, while dots are also colored to match the status. Finally, a word cloud also utilizes IUCN data, painting a picture in language of the rationale behind classifying a species into one of the Redlist categories. Common words for critically endangered plants include habitat, decline, rare, fire, and human. 
+
+I would like to thank Preceptor for sticking with us through the semester, as well as Enxhi Buxheli and Seeam Noor for the helpful tips. 
+
+\newpage
+<center>
+**Citations**
+</center>
+
+Hinsley, A., De Boer, H., Fay, M., Gale, S., Gardiner, L., Gunasekara, R., . . . Phelps, J. (2018). A review of the trade in orchids and its implications for conservation. Botanical Journal of the Linnean Society, 186(4), 435-455.
+
+https://trade.cites.org 
+
+https://www.iucnredlist.org
+
+https://datahub.io/core/country-list
+

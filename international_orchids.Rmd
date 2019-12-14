@@ -58,18 +58,6 @@ IUCN_orchids <- IUCN_assessments %>% inner_join(IUCN_taxonomy, by = c("internalT
 all_table <- CITES_orchid %>% inner_join(IUCN_orchids, by = c("Taxon" = "scientificName"))
 ```
 
-#Some ideas for the future...
-#import/export map, globe with arrows connecting
-
-#shiny app?
-
-#use keywords to determine main causes of habitat loss, types of orchids more likely to be endangered
-
-#submit pdf about project to
-#causeweb.org/usproc/
-
-#Citing the paper which uses similar data as you: 
-#https://academic.oup.com/botlinnean/article/186/4/435/4736317
 
 ```{r}
 #Reading in the country code data
@@ -85,22 +73,6 @@ left_join(country_codes, by = c("Exporter" = "Code"))
 setnames(all_table, old=c("Name.x","Name.y"), new=c("importer_country", "exporter_country"))
 ```
 
-# Next steps:
-
-# DONE: Visualize locations of orchids on a 3D globe -- could use coordinate points from IUCN data, or aggregate the orchids into groups based on their threatened level in each country (scroll over a country to see how many IUCN near threatened, threatened, endangered, and critical orchids grow there).
-
-# Visualize import/export of orchids (by genus? subfamily?) based on magnitude for each country. This could be done on a globe or a flat map. Connecting lines/arrows for each shipment, with width varying depending on the number of plants/two circles or a bar chart to indicate import and export of plants, based on total number of shipments or total number of orchids.
-
-# Alternatively, could make a bipartite network showing connections between the contries
-
-# MAKE A WORDMAP: Search "rationale" column in IUCN assessments data (now part of all_table) for keywords or phrases such as "habitat decline," "threat from agriculture" to show trends in the cause of species decline. 
-
-# Search "habitat" column for keywords relating to growth habit: "epiphytic" (tree-dwelling), "terrestrial" (soil-dwelling) or "epilithic" (rock-dwelling), to look for links between the growth habit and the natural abundance of plants in the face of changing landscapes. 
-
-# RANDOM SELECTION: find a random orchid, photo, and picture.
-
-# I think the information in IUCN columns is in html. If it's possible to read it in html form into the shiny app, the extra characters might disappear. 
-
 ```{r}
 # Reading in IUCN's point dataset, which contains information 
 # regarding locations of plants over many genuses
@@ -110,10 +82,11 @@ points <- read_xlsx("~/Desktop/redlist_orchid_points/points_data.xlsx")
 # red list categories.
 points_plus <- points %>% 
   left_join(IUCN_orchids, by = c("binomial" = "scientificName")) %>%
-  select(binomial, longitude, latitude, redlistCategory) %>%
+  select(binomial, longitude, latitude, redlistCategory, year) %>%
   filter(redlistCategory != "Data Deficient") %>%
   mutate(label = str_c(points_plus$binomial,
                        points_plus$redlistCategory,
+                       points_plus$year,
                        sep = ", "))
 
 # Ordering levels so they can be colored on the map
@@ -152,8 +125,6 @@ IUCN_map <-
                    label = ~points_plus$label
   )
 ```
-
-#Country data was sourced from datahub.io
 
 ```{r}
 # Practicing image searches: making a function which takes 
@@ -207,56 +178,5 @@ output <- list(info, url)
 
 }
 
-# Now that you have the rows together, you can display each of them 
-# in a shiny textOutput. But how to get the search_word function to 
-# output a list of this info dataframe, as well as the "ima" image? 
-
-# as.list for each df
-# make a dataframe with each of these lists as a column
-# With that as the output, you can work with the data separately in 
-# Each shiny output that you make 
-
 ```
 
-```{r}
-
-```
-
-search_word <- function() {
-    
-    random <- sample_n(im_index, size = 1)  
-    
-    word <- as.character(random[1,8])
-    
-    keyword <- str_c("https://www.google.com/search?site=&tbm=isch&q=", 
-                     word,
-                     sep = "")
-    
-    search <- read_html(keyword)
-    
-    urls <- search %>%
-        html_nodes("img") %>% 
-        html_attr("src") 
-    
-    ima <- image_read(urls[1]) %>%
-        image_scale(geometry = "100")
-    
-    ima <- image_border(image_background(ima, "hotpink"), "#000080", "5x5")
-    
-    info <- 
-        random %>%
-        select(genus, species, rationale, habitat, 
-               threats, range, use_trade) %>%
-        pivot_longer(cols = c(genus, species, 
-                              rationale, habitat, 
-                              threats, range, use_trade),
-                     names_to = "stats", 
-                     values_to = "information") 
-    
-    info_list <- as.list(info)
-    ima_list <- as.list(ima)
-    
-    output_list <- combine(info_list, ima_list)
-    
-    output_list
-}
